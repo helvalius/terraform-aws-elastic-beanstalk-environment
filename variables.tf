@@ -494,11 +494,9 @@ variable "deployment_timeout" {
 variable "iam_instance_profile" {
   description = "The IAM Instance Profile name used for EC2"
   type        = string
-  default     = "${module.label.id}-eb-ec2"
 }
 
 variable "iam_service_role" { 
   description = "The IAM Service Role used for Elastic Beanstalk"
   type        = string
-  default     =  "${module.label.id}-eb-service"
 }
