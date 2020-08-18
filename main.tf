@@ -84,7 +84,7 @@ resource "aws_iam_role_policy_attachment" "elastic_beanstalk_multi_container_doc
 }
 
 resource "aws_iam_role" "ec2" {
-  name               = var.aws_iam_role_ec2
+  name               = var.iam_servce_role_ec2
   assume_role_policy = data.aws_iam_policy_document.ec2.json
 }
 
