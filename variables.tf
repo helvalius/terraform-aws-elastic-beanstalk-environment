@@ -500,3 +500,9 @@ variable "iam_service_role" {
   description = "The IAM Service Role used for Elastic Beanstalk"
   type        = string
 }
+
+variable "aws_iam_role_ec2" { 
+  description = "The IAM Service Role used for EC2"
+  type        = string
+}
+
