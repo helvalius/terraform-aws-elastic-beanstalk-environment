@@ -1,5 +1,5 @@
 module "label" {
-  source      = "git::https://github.com/cloudposse/terraform-null-label.git?ref=tags/0.15.0"
+  source      = "git::https://github.com/cloudposse/terraform-null-label.git?ref=tags/0.17.0"
   namespace   = var.namespace
   environment = var.environment
   name        = var.name
@@ -677,7 +677,12 @@ resource "aws_elastic_beanstalk_environment" "default" {
     resource  = ""
   }
 
-
+  setting {
+    namespace = "aws:ec2:instances"
+    name      = "SpotMaxPrice"
+    value     = var.spot_max_price == -1 ? "" : var.spot_max_price
+    resource  = ""
+  }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -897,11 +902,11 @@ resource "aws_elastic_beanstalk_environment" "default" {
 }
 
 data "aws_elb_service_account" "main" {
-  count = var.tier == "WebServer" ? 1 : 0
+  count = var.tier == "WebServer" && var.environment_type == "LoadBalanced" ? 1 : 0
 }
 
 data "aws_iam_policy_document" "elb_logs" {
-  count = var.tier == "WebServer" ? 1 : 0
+  count = var.tier == "WebServer" && var.environment_type == "LoadBalanced" ? 1 : 0
 
   statement {
     sid = ""
@@ -924,7 +929,7 @@ data "aws_iam_policy_document" "elb_logs" {
 }
 
 resource "aws_s3_bucket" "elb_logs" {
-  count         = var.tier == "WebServer" ? 1 : 0
+  count         = var.tier == "WebServer" && var.environment_type == "LoadBalanced" ? 1 : 0
   bucket        = "${module.label.id}-eb-loadbalancer-logs"
   acl           = "private"
   force_destroy = var.force_destroy
@@ -932,7 +937,7 @@ resource "aws_s3_bucket" "elb_logs" {
 }
 
 module "dns_hostname" {
-  source  = "git::https://github.com/cloudposse/terraform-aws-route53-cluster-hostname.git?ref=tags/0.3.0"
+  source  = "git::https://github.com/cloudposse/terraform-aws-route53-cluster-hostname.git?ref=tags/0.5.0"
   enabled = var.dns_zone_id != "" && var.tier == "WebServer" ? true : false
   name    = var.dns_subdomain != "" ? var.dns_subdomain : var.name
   zone_id = var.dns_zone_id
