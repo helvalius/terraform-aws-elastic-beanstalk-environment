@@ -3,47 +3,6 @@ variable "region" {
   description = "AWS region"
 }
 
-variable "namespace" {
-  type        = string
-  description = "Namespace, which could be your organization name, e.g. 'eg' or 'cp'"
-  default     = ""
-}
-
-variable "stage" {
-  type        = string
-  description = "Stage, e.g. 'prod', 'staging', 'dev', or 'test'"
-  default     = ""
-}
-
-variable "name" {
-  type        = string
-  description = "Solution name, e.g. 'app' or 'cluster'"
-}
-
-variable "delimiter" {
-  type        = string
-  default     = "-"
-  description = "Delimiter to be used between `name`, `namespace`, `stage`, etc."
-}
-
-variable "environment" {
-  type        = string
-  default     = ""
-  description = "Environment, e.g. 'prod', 'staging', 'dev', 'pre-prod', 'UAT'"
-}
-
-variable "attributes" {
-  type        = list(string)
-  default     = []
-  description = "Additional attributes (e.g. `1`)"
-}
-
-variable "tags" {
-  type        = map(string)
-  default     = {}
-  description = "Additional tags (e.g. `map('BusinessUnit`,`XYZ`)"
-}
-
 variable "description" {
   type        = string
   default     = ""
@@ -491,6 +450,18 @@ variable "deployment_timeout" {
   description = "Number of seconds to wait for an instance to complete executing commands"
 }
 
+variable "extended_ec2_policy_document" {
+  type        = string
+  default     = "{}"
+  description = "Extensions or overrides for the IAM role assigned to EC2 instances"
+}
+
+variable "prefer_legacy_ssm_policy" {
+  type        = bool
+  default     = true
+  description = "Whether to use AmazonEC2RoleforSSM (will soon be deprecated) or AmazonSSMManagedInstanceCore policy"
+}
+
 variable "iam_instance_profile" {
   description = "The IAM Instance Profile name used for EC2"
   type        = string
@@ -505,4 +476,3 @@ variable "iam_service_role_ec2" {
   description = "The IAM Service Role used for EC2"
   type        = string
 }
-

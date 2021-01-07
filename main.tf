@@ -1,14 +1,3 @@
-module "label" {
-  source      = "git::https://github.com/cloudposse/terraform-null-label.git?ref=tags/0.17.0"
-  namespace   = var.namespace
-  environment = var.environment
-  name        = var.name
-  stage       = var.stage
-  delimiter   = var.delimiter
-  attributes  = var.attributes
-  tags        = var.tags
-}
-
 #
 # Service
 #
@@ -89,9 +78,9 @@ resource "aws_iam_role" "ec2" {
 }
 
 resource "aws_iam_role_policy" "default" {
-  name   = "${module.label.id}-eb-default"
+  name   = "${module.this.id}-eb-default"
   role   = aws_iam_role.ec2.id
-  policy = data.aws_iam_policy_document.default.json
+  policy = data.aws_iam_policy_document.extended.json
 }
 
 resource "aws_iam_role_policy_attachment" "web_tier" {
@@ -106,7 +95,7 @@ resource "aws_iam_role_policy_attachment" "worker_tier" {
 
 resource "aws_iam_role_policy_attachment" "ssm_ec2" {
   role       = aws_iam_role.ec2.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+  policy_arn = var.prefer_legacy_ssm_policy ? "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM" : "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 
   lifecycle {
     create_before_destroy = true
@@ -130,7 +119,7 @@ resource "aws_iam_role_policy_attachment" "ecr_readonly" {
 }
 
 resource "aws_ssm_activation" "ec2" {
-  name               = module.label.id
+  name               = module.this.id
   iam_role           = aws_iam_role.ec2.id
   registration_limit = var.autoscale_max
 }
@@ -294,14 +283,18 @@ data "aws_iam_policy_document" "default" {
   }
 }
 
+data "aws_iam_policy_document" "extended" {
+  source_json   = data.aws_iam_policy_document.default.json
+  override_json = var.extended_ec2_policy_document
+}
 
 resource "aws_iam_instance_profile" "ec2" {
-  name = var.iam_instance_profile
+   name = var.iam_instance_profile
   role = aws_iam_role.ec2.name
 }
 
 resource "aws_security_group" "default" {
-  name        = module.label.id
+  name        = module.this.id
   description = "Allow inbound traffic from provided Security Groups"
 
   vpc_id = var.vpc_id
@@ -320,7 +313,7 @@ resource "aws_security_group" "default" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = module.label.tags
+  tags = module.this.tags
 }
 
 locals {
@@ -328,7 +321,7 @@ locals {
   // and if it is provided, terraform tries to recreate the application on each `plan/apply`
   // `Namespace` should be removed as well since any string that contains `Name` forces recreation
   // https://github.com/terraform-providers/terraform-provider-aws/issues/3963
-  tags = { for t in keys(module.label.tags) : t => module.label.tags[t] if t != "Name" && t != "Namespace" }
+  tags = { for t in keys(module.this.tags) : t => module.this.tags[t] if t != "Name" && t != "Namespace" }
 
   classic_elb_settings = [
     {
@@ -504,7 +497,7 @@ locals {
 # http://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options-general.html#command-options-general-elasticbeanstalkmanagedactionsplatformupdate
 #
 resource "aws_elastic_beanstalk_environment" "default" {
-  name                   = module.label.id
+  name                   = module.this.id
   application            = var.elastic_beanstalk_application_name
   description            = var.description
   tier                   = var.tier
@@ -582,7 +575,7 @@ resource "aws_elastic_beanstalk_environment" "default" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "BASE_HOST"
-    value     = var.name
+    value     = module.this.name
     resource  = ""
   }
 
@@ -916,7 +909,7 @@ data "aws_iam_policy_document" "elb_logs" {
     ]
 
     resources = [
-      "arn:aws:s3:::${module.label.id}-eb-loadbalancer-logs/*"
+      "arn:aws:s3:::${module.this.id}-eb-loadbalancer-logs/*"
     ]
 
     principals {
@@ -930,16 +923,19 @@ data "aws_iam_policy_document" "elb_logs" {
 
 resource "aws_s3_bucket" "elb_logs" {
   count         = var.tier == "WebServer" && var.environment_type == "LoadBalanced" ? 1 : 0
-  bucket        = "${module.label.id}-eb-loadbalancer-logs"
+  bucket        = "${module.this.id}-eb-loadbalancer-logs"
   acl           = "private"
   force_destroy = var.force_destroy
   policy        = join("", data.aws_iam_policy_document.elb_logs.*.json)
 }
 
 module "dns_hostname" {
-  source  = "git::https://github.com/cloudposse/terraform-aws-route53-cluster-hostname.git?ref=tags/0.5.0"
-  enabled = var.dns_zone_id != "" && var.tier == "WebServer" ? true : false
-  name    = var.dns_subdomain != "" ? var.dns_subdomain : var.name
-  zone_id = var.dns_zone_id
-  records = [aws_elastic_beanstalk_environment.default.cname]
+  source   = "cloudposse/route53-cluster-hostname/aws"
+  version  = "0.10.0"
+  enabled  = var.dns_zone_id != "" && var.tier == "WebServer" ? true : false
+  dns_name = var.dns_subdomain != "" ? var.dns_subdomain : module.this.name
+  zone_id  = var.dns_zone_id
+  records  = [aws_elastic_beanstalk_environment.default.cname]
+
+  context = module.this.context
 }
